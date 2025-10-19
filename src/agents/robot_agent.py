@@ -179,72 +179,73 @@ class RobotAgent(BaseAgent):
             timestamp=self.state.iteration_count,
             sensor_data=sensor_data
         )
-    
+
     def decide(self, perception: Perception) -> Action:
         """
-        Decide la acción a tomar basándose en la percepción y memoria
+        Decide la acción a tomar basándose en una jerarquía de prioridades.
         """
         sensor_data = perception.sensor_data
-        
+
         if sensor_data.get('monster_in_cell', False):
-            return Action('destroy', {})
-        
+            return Action('destroy', {'reason': 'priority_1_monster_in_cell'})
+
+
         if sensor_data.get('robot_ahead', False):
             return self._handle_robot_collision()
-        
+
         if sensor_data.get('monster_detected', False):
             return self._move_towards_monster(sensor_data)
-        
+
         return self._explore_space()
-    
+
     def _handle_robot_collision(self) -> Action:
         """
         Maneja la colisión con otro robot
         """
         import random
         decision = random.choice(['both_rotate', 'one_continues'])
-        
+
         if decision == 'both_rotate':
             side = (self.state.current_rotation_side % 4)
             self.state.current_rotation_side += 1
             return Action('rotate', {'side': side, 'reason': 'robot_collision'})
         else:
             return Action('move', {'reason': 'robot_collision_continue'})
-    
+
     def _move_towards_monster(self, sensor_data: Dict) -> Action:
         """
-        Intenta moverse hacia el monstruo detectado de forma sistemática.
+        Lógica de caza: intenta moverse sistemáticamente para encontrar al monstruo detectado.
+        Es más persistente que la exploración normal.
         """
         front_pos = self.state.orientation.get_front_position(self.state.position)
-        if not self.state.memory.is_position_void(front_pos):
-            return Action('move', {'reason': 'hunting_monster_forward_probe'})
 
-        side = (self.state.current_rotation_side % 4)
-        self.state.current_rotation_side += 1
-        return Action('rotate', {'side': side, 'reason': 'hunting_monster_scan_sides'})
-    
+        if not self.state.memory.is_position_void(front_pos):
+            return Action('move', {'reason': 'hunting_probe'})
+
+        else:
+            side = self.state.current_rotation_side % 4
+            self.state.current_rotation_side += 1
+            return Action('rotate', {'side': side, 'reason': 'hunting_scan_around'})
+
     def _explore_space(self) -> Action:
         """
         Explora el espacio de forma inteligente.
         """
         front_pos = self.state.orientation.get_front_position(self.state.position)
-        
-        # Regla 1: Si sabemos que hay un vacío adelante, rota.
+
         if self.state.memory.is_position_void(front_pos):
             side = self.state.current_rotation_side % 4
             self.state.current_rotation_side += 1
             return Action('rotate', {'side': side, 'reason': 'known_void_ahead'})
-        
-        # Regla 2: Si hemos visitado mucho la celda de adelante, es hora de rotar para no entrar en bucles.
+
         visits = self.state.memory.count_visits_to_position(front_pos)
-        if visits > 3: # Umbral para evitar bucles cortos
+        if visits > 3:
             side = self.state.current_rotation_side % 4
             self.state.current_rotation_side += 1
             return Action('rotate', {'side': side, 'reason': 'already_visited_too_much'})
-            
-        # Regla 3 (Default): Moverse para explorar.
+
         return Action('move', {'reason': 'exploring_new_area'})
-    
+
     def execute(self, action: Action, environment: Any) -> bool:
         """
         Ejecuta la acción en el entorno y actualiza la percepción si hay colisión.
@@ -262,39 +263,35 @@ class RobotAgent(BaseAgent):
             return self._execute_rotate(action)
         elif action.action_type == 'destroy':
             return self._execute_destroy(environment)
-        
+
         return False
-    
+
     def _execute_move(self, environment: Any) -> Tuple[bool, bool]:
         """
         Ejecuta el movimiento del robot.
         Retorna (éxito_del_movimiento, choco_con_vacio)
         """
         from ..environment.space import Position, CellType
-        
+
         current_pos = Position(*self.state.position)
         front_pos_tuple = self.state.orientation.get_front_position(self.state.position)
         front_pos = Position(*front_pos_tuple)
-        
-        # Si la posición está fuera del mapa, es como chocar con un vacío.
+
         if not front_pos.is_valid(environment.n):
-            return False, True # Falla, y fue por un "vacío" (límite)
+            return False, True
 
-        # Si la celda de enfrente es una zona vacía, choca.
         if environment.is_void(front_pos):
-            return False, True # Falla, y fue por un vacío.
+            return False, True
 
-        # Si hay otro robot, no se mueve. No es un choque con vacío.
         if front_pos in environment.robot_positions:
-            return False, False # Falla, pero no por un vacío.
+            return False, False
 
-        # Si todo está bien, se mueve.
         success = environment.move_entity(current_pos, front_pos, CellType.ROBOT)
         if success:
             self.state.position = front_pos_tuple
-        
+
         return success, False
-    
+
     def _execute_rotate(self, action: Action) -> bool:
         """
         Ejecuta la rotación del robot
@@ -302,16 +299,16 @@ class RobotAgent(BaseAgent):
         side = action.parameters.get('side', 0)
         self.state.orientation = self.state.orientation.rotate_90(side)
         return True
-    
+
     def _execute_destroy(self, environment: Any) -> bool:
         """
         Ejecuta la destrucción del monstruo y del robot,
         y desactiva al agente monstruo correspondiente.
         """
         from ..environment.space import Position
-        
+
         current_pos = Position(*self.state.position)
-        
+
         if current_pos in environment.monster_positions:
             monster_to_destroy = None
             if hasattr(environment, 'monsters'):
@@ -319,17 +316,17 @@ class RobotAgent(BaseAgent):
                     if monster.is_active() and monster.state.position == self.state.position:
                         monster_to_destroy = monster
                         break
-            
+
             environment.destroy_cell(current_pos)
-            
+
             if monster_to_destroy:
                 monster_to_destroy.deactivate()
-            
+
             self.deactivate()
             return True
-        
+
         return False
-    
+
     def get_statistics(self) -> Dict[str, Any]:
         """
         Obtiene estadísticas del robot
