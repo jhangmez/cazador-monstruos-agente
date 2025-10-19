@@ -8,8 +8,8 @@ from dataclasses import dataclass, field
 class Action:
     """
     Representa una acción que un agente puede ejecutar.
-    
-    Attributes:
+
+    Atributos:
         action_type (str): El tipo de acción (e.g., 'move', 'rotate', 'destroy').
         parameters (Dict[str, Any]): Parámetros adicionales para la acción.
         success (bool): Indica si la acción se ejecutó con éxito. Se establece
@@ -27,8 +27,8 @@ class Action:
 class Perception:
     """
     Representa la percepción de un agente sobre el entorno en un momento dado.
-    
-    Attributes:
+
+    Atributos:
         timestamp (int): El número de iteración de la simulación.
         sensor_data (Dict[str, Any]): Los datos recopilados por los sensores del agente.
     """
@@ -45,11 +45,11 @@ class AgentState(abc.ABC):
     Clase base abstracta para el estado interno de un agente.
     Mantiene la información que el agente recuerda entre iteraciones.
     """
-    
+
     def __init__(self, agent_id: str):
         """
         Inicializa el estado del agente.
-        
+
         Args:
             agent_id (str): El identificador único del agente.
         """
@@ -70,7 +70,7 @@ class AgentState(abc.ABC):
         """
         Actualiza el estado interno del agente basado en la última percepción y acción.
         Este método debe ser implementado por las subclases.
-        
+
         Args:
             perception (Perception): La percepción recibida.
             action (Action): La acción ejecutada.
@@ -88,7 +88,7 @@ class BaseAgent(abc.ABC):
     def __init__(self, agent_id: str):
         """
         Inicializa un agente base.
-        
+
         Args:
             agent_id (str): Un identificador legible para el agente (e.g., 'robot_1').
         """
@@ -105,7 +105,7 @@ class BaseAgent(abc.ABC):
         """
         Crea y retorna la instancia de estado específica para este tipo de agente.
         Debe ser implementado por las subclases.
-        
+
         Returns:
             AgentState: Una subclase de AgentState (e.g., RobotState, MonsterState).
         """
@@ -116,10 +116,10 @@ class BaseAgent(abc.ABC):
         """
         Utiliza los sensores del agente para percibir el entorno.
         Debe ser implementado por las subclases.
-        
+
         Args:
             environment (Any): La instancia del entorno de simulación.
-            
+
         Returns:
             Perception: Un objeto que contiene los datos sensoriales.
         """
@@ -130,10 +130,10 @@ class BaseAgent(abc.ABC):
         """
         Toma una decisión basada en la percepción actual y el estado interno (memoria).
         Debe ser implementado por las subclases.
-        
+
         Args:
             perception (Perception): La percepción actual del agente.
-            
+
         Returns:
             Action: La acción que el agente ha decidido ejecutar.
         """
@@ -144,24 +144,24 @@ class BaseAgent(abc.ABC):
         """
         Ejecuta una acción en el entorno utilizando sus efectores.
         Debe ser implementado por las subclases.
-        
+
         Args:
             action (Action): La acción a ejecutar.
             environment (Any): La instancia del entorno de simulación.
-            
+
         Returns:
             bool: True si la acción fue exitosa, False en caso contrario.
         """
         pass
-    
+
     def operate(self, environment: Any) -> Tuple[Perception, Action, bool]:
         """
         Ejecuta un ciclo completo de operación del agente: percibir, decidir, actuar.
         Este es el método principal que el simulador llamará en cada iteración.
-        
+
         Args:
             environment (Any): La instancia del entorno de simulación.
-            
+
         Returns:
             Tuple[Perception, Action, bool]: La percepción, la acción ejecutada y el
                                              resultado de la ejecución. Retorna
@@ -172,19 +172,15 @@ class BaseAgent(abc.ABC):
 
         self.state.iteration_count += 1
 
-        # 1. Percibir el entorno
         perception = self.perceive(environment)
-        
-        # 2. Decidir la próxima acción
+
         action = self.decide(perception)
-        
-        # 3. Ejecutar la acción
+
         success = self.execute(action, environment)
         action.success = success
-        
-        # 4. Actualizar el estado interno (memoria)
+
         self.state.update(perception, action)
-        
+
         return perception, action, success
 
     def is_active(self) -> bool:
@@ -200,7 +196,7 @@ class BaseAgent(abc.ABC):
         """
         Retorna un diccionario con estadísticas de rendimiento del agente.
         Debe ser implementado por las subclases.
-        
+
         Returns:
             Dict[str, Any]: Un diccionario con métricas relevantes del agente.
         """

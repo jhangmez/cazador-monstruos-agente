@@ -16,17 +16,17 @@ class EnvironmentVisualizer:
     """
     Clase responsable de generar todas las visualizaciones de la simulación.
     """
-    
+
     def __init__(self, images_dir: str):
         """
         Inicializa el visualizador.
-        
+
         Args:
             images_dir (str): El directorio donde se guardarán las imágenes generadas.
         """
         self.output_dir = images_dir
         os.makedirs(self.output_dir, exist_ok=True)
-    
+
     def _save_plot(self, fig, filename: str):
         """
         Guarda una figura en el directorio de salida y la cierra para liberar memoria.
@@ -43,7 +43,7 @@ class EnvironmentVisualizer:
         """
         if filename is None:
             filename = f"environment_iter_{iteration:04d}.png"
-            
+
         fig = plt.figure(figsize=(12, 12))
         ax = fig.add_subplot(111, projection='3d')
 
@@ -78,7 +78,7 @@ class EnvironmentVisualizer:
         ax.set_zlim(0, n)
         ax.legend()
         ax.grid(True)
-        
+
         self._save_plot(fig, filename)
 
     def plot_statistics(self, metrics: Dict[str, List], filename: str):
@@ -88,12 +88,12 @@ class EnvironmentVisualizer:
         fig, ax1 = plt.subplots(figsize=(12, 7))
 
         iterations = range(len(metrics['robots_active']))
-        
+
         # Eje principal (izquierda)
         ax1.plot(iterations, metrics['robots_active'], label='Robots Activos', color='blue')
         ax1.plot(iterations, metrics['monsters_alive'], label='Monstruos Vivos', color='red')
         ax1.plot(iterations, metrics['monsters_destroyed'], label='Monstruos Destruidos', color='green', linestyle='--')
-        
+
         ax1.set_xlabel("Iteración")
         ax1.set_ylabel("Cantidad de Entidades")
         ax1.tick_params(axis='y')
@@ -104,13 +104,13 @@ class EnvironmentVisualizer:
         ax2.set_ylabel("Exploración (%)", color='purple')
         ax2.tick_params(axis='y', labelcolor='purple')
         ax2.set_ylim(0, 100)
-        
+
         fig.suptitle("Evolución de Métricas de la Simulación", fontsize=16)
         fig.legend(loc="upper right", bbox_to_anchor=(0.9, 0.9))
         fig.tight_layout(rect=[0, 0, 1, 0.96])
-        
+
         self._save_plot(fig, filename)
-        
+
     def plot_heatmap(self, all_positions: List[Tuple[int, int, int]], n: int, filename: str):
         """
         Genera un mapa de calor 2D proyectado de las posiciones visitadas por los robots.
@@ -119,7 +119,7 @@ class EnvironmentVisualizer:
             return
 
         counts = Counter(all_positions)
-        
+
         heatmap_xy = np.zeros((n, n))
         heatmap_xz = np.zeros((n, n))
         heatmap_yz = np.zeros((n, n))
@@ -136,13 +136,13 @@ class EnvironmentVisualizer:
         ax1.set_title("Proyección XY (Vista Superior)")
         ax1.set_xlabel("Eje X")
         ax1.set_ylabel("Eje Y")
-        
+
         # Proyección XZ (Vista Frontal)
         im2 = ax2.imshow(heatmap_xz, cmap='viridis', origin='lower')
         ax2.set_title("Proyección XZ (Vista Frontal)")
         ax2.set_xlabel("Eje X")
         ax2.set_ylabel("Eje Z")
-        
+
         # Proyección YZ (Vista Lateral)
         im3 = ax3.imshow(heatmap_yz, cmap='viridis', origin='lower')
         ax3.set_title("Proyección YZ (Vista Lateral)")
@@ -152,10 +152,10 @@ class EnvironmentVisualizer:
         fig.colorbar(im1, ax=[ax1, ax2, ax3], orientation='vertical', fraction=0.02, pad=0.04)
         fig.suptitle("Mapa de Calor de Exploración de Robots", fontsize=16)
         fig.tight_layout(rect=[0, 0, 1, 0.95])
-        
+
         self._save_plot(fig, filename)
 
-    def plot_2d_slices(self, environment: OperationalSpace, robots: List[Any], 
+    def plot_2d_slices(self, environment: OperationalSpace, robots: List[Any],
                        monsters: List[Any], z_level: int, iteration: int, filename: str):
         """
         Grafica un corte transversal 2D del entorno en un nivel Z específico.
@@ -171,7 +171,7 @@ class EnvironmentVisualizer:
                     slice_grid[y, x] = 1 # 1 para vacío
 
         ax.imshow(slice_grid, cmap='Greys', origin='lower', alpha=0.3)
-        
+
         # Extraer y graficar entidades en este nivel
         robot_pos_slice = [(r.state.position[0], r.state.position[1]) for r in robots if r.is_active() and r.state.position[2] == z_level]
         monster_pos_slice = [(m.state.position[0], m.state.position[1]) for m in monsters if m.is_active() and m.state.position[2] == z_level]
@@ -194,5 +194,5 @@ class EnvironmentVisualizer:
         ax.set_yticks(np.arange(0, environment.n, 2))
         ax.grid(True, which='both', linestyle='--', linewidth=0.5)
         ax.legend()
-        
+
         self._save_plot(fig, filename)

@@ -13,13 +13,13 @@ class RobotOrientation:
     Orientación del robot en el espacio 3D
     """
     forward: Tuple[int, int, int]
-    
+
     def rotate_90(self, side: int) -> 'RobotOrientation':
         """
         Rota la orientación 90 grados hacia uno de los lados
         """
         fx, fy, fz = self.forward
-        
+
         if fx != 0:
             if side == 0:
                 return RobotOrientation((0, fx, 0))
@@ -47,7 +47,7 @@ class RobotOrientation:
                 return RobotOrientation((0, fz, 0))
             else:
                 return RobotOrientation((0, -fz, 0))
-    
+
     def get_front_position(self, current_pos: Tuple[int, int, int]) -> Tuple[int, int, int]:
         """
         Calcula la posición frontal basada en la orientación
@@ -55,25 +55,25 @@ class RobotOrientation:
         x, y, z = current_pos
         fx, fy, fz = self.forward
         return (x + fx, y + fy, z + fz)
-    
+
     def get_surrounding_positions(self, current_pos: Tuple[int, int, int]) -> List[Tuple[int, int, int]]:
         """
         Obtiene las 5 posiciones alrededor del robot (excluyendo parte posterior)
         """
         x, y, z = current_pos
         fx, fy, fz = self.forward
-        
+
         positions = [
             (x + fx, y + fy, z + fz)
         ]
-        
+
         directions = [(1, 0, 0), (-1, 0, 0), (0, 1, 0), (0, -1, 0), (0, 0, 1), (0, 0, -1)]
         back = (-fx, -fy, -fz)
-        
+
         for dx, dy, dz in directions:
             if (dx, dy, dz) != back and (dx, dy, dz) != (fx, fy, fz):
                 positions.append((x + dx, y + dy, z + dz))
-        
+
         return positions[:5]
 
 
@@ -81,44 +81,48 @@ class RobotState(AgentState):
     """
     Estado interno del robot con memoria
     """
-    
+
     def __init__(self, agent_id: str, initial_position: Tuple[int, int, int]):
         super().__init__(agent_id)
-        self.position = initial_position
-        self.previous_position = initial_position
+        self.absolute_position = initial_position
+        self.internal_position = (0, 0, 0)
+        self.position = self.absolute_position
         self.orientation = RobotOrientation((1, 0, 0))
-        
+
         from ..memory.perception_action_table import PerceptionActionTable
         self.memory = PerceptionActionTable()
-        
+
         self.monsters_destroyed = 0
         self.collisions_with_void = 0
         self.movements_made = 0
         self.rotations_made = 0
         self.current_rotation_side = 0
-    
+
     def update(self, perception: Perception, action: Action):
         """
         Actualiza el estado del robot con nueva percepción y acción
         """
         if action.action_type == 'move' and action.success:
-            self.previous_position = self.position
-            self.position = action.parameters.get('new_position', self.position)
+            self.absolute_position = action.parameters.get('new_position', self.absolute_position)
+            self.position = self.absolute_position
+            px, py, pz = self.internal_position
+            ox, oy, oz = self.orientation.forward
+            self.internal_position = (px + ox, py + oy, pz + oz)
+
             self.movements_made += 1
-        
+
         if action.action_type == 'rotate':
             self.rotations_made += 1
-        
+
         if action.action_type == 'destroy':
             self.monsters_destroyed += 1
-        
 
         if action.parameters.get('hit_void', False):
             self.collisions_with_void += 1
-        
+
         self.memory.add_entry(
             timestamp=perception.timestamp,
-            position=self.position,
+            position=self.internal_position,
             perception=perception.sensor_data,
             action=action.action_type,
             action_params=action.parameters,
@@ -130,51 +134,51 @@ class RobotAgent(BaseAgent):
     """
     Agente robot cazador de monstruos con memoria interna
     """
-    
+
     def __init__(self, agent_id: str, initial_position: Tuple[int, int, int]):
         self.initial_position = initial_position
         super().__init__(agent_id)
-    
+
     def _initialize_state(self) -> RobotState:
         """
         Inicializa el estado del robot
         """
         return RobotState(self.agent_id, self.initial_position)
-    
+
     def perceive(self, environment: Any) -> Perception:
         """
         Percibe el entorno usando sus sensores
         """
         from src.environment.space import Position
-        
+
         current_pos = Position(*self.state.position)
         sensor_data = {}
-        
+
         sensor_data['position'] = self.state.position
         sensor_data['orientation'] = self.state.orientation.forward
-        
+
         surrounding = self.state.orientation.get_surrounding_positions(self.state.position)
         monster_nearby = False
-        
+
         for pos_tuple in surrounding:
             pos = Position(*pos_tuple)
             if pos.is_valid(environment.n):
                 if pos in environment.monster_positions:
                     monster_nearby = True
                     break
-        
+
         sensor_data['monster_detected'] = monster_nearby
-        
+
         current_cell_pos = Position(*self.state.position)
         sensor_data['monster_in_cell'] = current_cell_pos in environment.monster_positions
-        
+
         front_pos = self.state.orientation.get_front_position(self.state.position)
         front_position = Position(*front_pos)
         sensor_data['robot_ahead'] = front_position in environment.robot_positions
-        
+
         sensor_data['hit_void'] = False
         sensor_data['attempted_position'] = None
-        
+
         return Perception(
             timestamp=self.state.iteration_count,
             sensor_data=sensor_data
@@ -228,17 +232,14 @@ class RobotAgent(BaseAgent):
             return Action('rotate', {'side': side, 'reason': 'hunting_scan_around'})
 
     def _explore_space(self) -> Action:
-        """
-        Explora el espacio de forma inteligente.
-        """
-        front_pos = self.state.orientation.get_front_position(self.state.position)
+        internal_front_pos = self.state.orientation.get_front_position(self.state.internal_position)
 
-        if self.state.memory.is_position_void(front_pos):
+        if self.state.memory.is_position_void(internal_front_pos):
             side = self.state.current_rotation_side % 4
             self.state.current_rotation_side += 1
             return Action('rotate', {'side': side, 'reason': 'known_void_ahead'})
 
-        visits = self.state.memory.count_visits_to_position(front_pos)
+        visits = self.state.memory.count_visits_to_position(internal_front_pos)
         if visits > 3:
             side = self.state.current_rotation_side % 4
             self.state.current_rotation_side += 1
@@ -253,10 +254,9 @@ class RobotAgent(BaseAgent):
         if action.action_type == 'move':
             success, hit_void = self._execute_move(environment)
             if hit_void:
-                # Si chocamos, actualizamos la memoria con esta nueva información.
-                front_pos = self.state.orientation.get_front_position(self.state.position)
-                self.state.memory.void_map.add(front_pos)
-                action.parameters['hit_void'] = True # Registra el evento en la acción
+                internal_front_pos = self.state.orientation.get_front_position(self.state.internal_position)
+                self.state.memory.void_map.add(internal_front_pos)
+                action.parameters['hit_void'] = True
             return success
 
         elif action.action_type == 'rotate':

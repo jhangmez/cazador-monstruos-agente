@@ -7,21 +7,21 @@ class ReportGenerator:
     """
     Genera reportes en formato Markdown de la simulación
     """
-    
+
     def __init__(self, output_path: str = "reports/simulation_report.md"):
         """
         Inicializa el generador de reportes
         """
         self.output_path = output_path
         os.makedirs(os.path.dirname(output_path), exist_ok=True)
-    
+
     def generate_report(self, config, statistics: Dict[str, Any], 
                        metrics, events: List) -> str:
         """
         Genera el reporte completo de la simulación
         """
         report_lines = []
-        
+
         report_lines.extend(self._generate_header())
         report_lines.extend(self._generate_ontology_section())
         report_lines.extend(self._generate_problem_section())
@@ -34,15 +34,15 @@ class ReportGenerator:
         report_lines.extend(self._generate_analysis_section(statistics))
         report_lines.extend(self._generate_events_section(events))
         report_lines.extend(self._generate_conclusions_section(statistics))
-        
+
         report_content = '\n'.join(report_lines)
-        
+
         with open(self.output_path, 'w', encoding='utf-8') as f:
             f.write(report_content)
-        
+
         print(f"\nReporte generado: {self.output_path}")
         return self.output_path
-    
+
     def _generate_header(self) -> List[str]:
         """
         Genera el encabezado del reporte
@@ -55,7 +55,7 @@ class ReportGenerator:
             "---",
             ""
         ]
-    
+
     def _generate_ontology_section(self) -> List[str]:
         """
         Genera la sección de ontología
@@ -111,7 +111,7 @@ class ReportGenerator:
             "---",
             ""
         ]
-    
+
     def _generate_problem_section(self) -> List[str]:
         """
         Genera la sección de definición del problema
@@ -307,7 +307,7 @@ class ReportGenerator:
             "---",
             ""
         ]
-    
+
     def _generate_perception_action_tables(self) -> List[str]:
         """
         Genera las tablas percepción-acción
@@ -338,14 +338,14 @@ class ReportGenerator:
             "---",
             ""
         ]
-    
+
     def _generate_results_section(self, statistics: Dict, metrics) -> List[str]:
         """
         Genera la sección de resultados
         """
         summary = statistics['simulation_summary']
         performance = statistics['performance']
-        
+
         return [
             "## 7. Resultados de la Simulación",
             "",
@@ -370,7 +370,7 @@ class ReportGenerator:
             "---",
             ""
         ]
-    
+
     def _generate_visualizations_section(self) -> List[str]:
         """
         Genera la sección de visualizaciones
@@ -411,7 +411,7 @@ class ReportGenerator:
             "---",
             ""
         ]
-    
+
     def _generate_analysis_section(self, statistics: Dict) -> List[str]:
         """
         Genera la sección de análisis
