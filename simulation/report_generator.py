@@ -147,7 +147,7 @@ class ReportGenerator:
             "---",
             ""
         ]
-    
+
     def _generate_configuration_section(self, config) -> List[str]:
         """
         Genera la sección de configuración
@@ -179,7 +179,7 @@ class ReportGenerator:
             "---",
             ""
         ]
-    
+
     def _generate_agent_description_section(self) -> List[str]:
         """
         Genera la descripción de los agentes
@@ -274,7 +274,7 @@ class ReportGenerator:
             "---",
             ""
         ]
-    
+
     def _generate_environment_characteristics(self) -> List[str]:
         """
         Genera características del ambiente según AIMA
@@ -422,11 +422,11 @@ class ReportGenerator:
             "### 9.1 Comportamiento de los Robots",
             ""
         ]
-        
+
         robot_stats = statistics['robot_statistics']
         active_robots = [r for r in robot_stats if r['is_active']]
         destroyed_robots = [r for r in robot_stats if not r['is_active']]
-        
+
         lines.extend([
             f"**Robots que completaron la simulación:** {len(active_robots)}",
             f"**Robots destruidos (con monstruos):** {len(destroyed_robots)}",
@@ -434,7 +434,7 @@ class ReportGenerator:
             "#### Estadísticas por Robot:",
             ""
         ])
-        
+
         for i, robot in enumerate(robot_stats[:5], 1):
             lines.extend([
                 f"**Robot {i}** (ID: `{robot['agent_id'][:8]}`)",
@@ -445,21 +445,21 @@ class ReportGenerator:
                 f"- Monstruos destruidos: {robot['monsters_destroyed']}",
                 ""
             ])
-        
+
         if len(robot_stats) > 5:
             lines.append(f"*({len(robot_stats) - 5} robots adicionales omitidos para brevedad)*")
             lines.append("")
-        
+
         lines.extend([
             "### 9.2 Comportamiento de los Monstruos",
             "",
             f"**Total de monstruos:** {len(statistics['monster_statistics'])}",
             ""
         ])
-        
+
         monster_stats = statistics['monster_statistics']
         total_monster_movements = sum(m['movements_made'] for m in monster_stats)
-        
+
         lines.extend([
             f"- Movimientos totales de monstruos: {total_monster_movements}",
             f"- Promedio de movimientos por monstruo: {total_monster_movements / len(monster_stats):.2f}",
@@ -467,15 +467,15 @@ class ReportGenerator:
             "---",
             ""
         ])
-        
+
         return lines
-    
+
     def _generate_events_section(self, events: List) -> List[str]:
         """
         Genera la sección de eventos importantes
         """
         destruction_events = [e for e in events if e.event_type == 'MONSTER_DESTROYED']
-        
+
         lines = [
             "## 10. Eventos Importantes",
             "",
@@ -483,30 +483,30 @@ class ReportGenerator:
             f"**Eventos de destrucción:** {len(destruction_events)}",
             "",
         ]
-        
+
         if destruction_events:
             lines.extend([
                 "### Primeros 10 Eventos de Destrucción:",
                 ""
             ])
-            
+
             for event in destruction_events[:10]:
                 lines.append(f"- **Iteración {event.iteration}:** {event.description} en posición {event.data.get('position')}")
-            
+
             if len(destruction_events) > 10:
                 lines.append(f"\n*({len(destruction_events) - 10} eventos adicionales omitidos)*")
-        
+
         lines.extend(["", "---", ""])
-        
+
         return lines
-    
+
     def _generate_conclusions_section(self, statistics: Dict) -> List[str]:
         """
         Genera la sección de conclusiones
         """
         summary = statistics['simulation_summary']
         performance = statistics['performance']
-        
+
         return [
             "## 11. Conclusiones",
             "",
