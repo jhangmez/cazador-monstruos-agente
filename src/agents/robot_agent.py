@@ -84,14 +84,13 @@ class RobotState(AgentState):
 
     def __init__(self, agent_id: str, initial_position: Tuple[int, int, int]):
         super().__init__(agent_id)
-        self.absolute_position = initial_position
-        self.internal_position = (0, 0, 0)
-        self.position = self.absolute_position
+        self.position = initial_position
         self.orientation = RobotOrientation((1, 0, 0))
 
         from ..memory.perception_action_table import PerceptionActionTable
         self.memory = PerceptionActionTable()
 
+        self.just_collided: bool = False
         self.monsters_destroyed = 0
         self.collisions_with_void = 0
         self.movements_made = 0
@@ -102,6 +101,7 @@ class RobotState(AgentState):
         """
         Actualiza el estado del robot con nueva percepción y acción
         """
+        self.just_collided = False
         if action.action_type == 'move' and action.success:
             self.absolute_position = action.parameters.get('new_position', self.absolute_position)
             self.position = self.absolute_position
@@ -190,16 +190,27 @@ class RobotAgent(BaseAgent):
         """
         sensor_data = perception.sensor_data
 
+        # PRIORIDAD 0: REACCIÓN A COLISIÓN (La más urgente)
+        # Si acabamos de chocar, la única acción sensata es rotar.
+        if self.state.just_collided:
+            # El flag se resetea en el siguiente 'update', así que solo reaccionamos.
+            side = self.state.current_rotation_side % 4
+            self.state.current_rotation_side += 1
+            return Action('rotate', {'reason': 'priority_0_collision_reaction'})
+
+        # PRIORIDAD 1: DESTRUCCIÓN
         if sensor_data.get('monster_in_cell', False):
             return Action('destroy', {'reason': 'priority_1_monster_in_cell'})
 
-
+        # PRIORIDAD 2: NEGOCIACIÓN
         if sensor_data.get('robot_ahead', False):
             return self._handle_robot_collision()
 
+        # PRIORIDAD 3: MODO CAZA
         if sensor_data.get('monster_detected', False):
             return self._move_towards_monster(sensor_data)
 
+        # PRIORIDAD 4: MODO EXPLORACIÓN (Acción por defecto)
         return self._explore_space()
 
     def _handle_robot_collision(self) -> Action:
@@ -232,20 +243,11 @@ class RobotAgent(BaseAgent):
             return Action('rotate', {'side': side, 'reason': 'hunting_scan_around'})
 
     def _explore_space(self) -> Action:
-        internal_front_pos = self.state.orientation.get_front_position(self.state.internal_position)
-
-        if self.state.memory.is_position_void(internal_front_pos):
-            side = self.state.current_rotation_side % 4
-            self.state.current_rotation_side += 1
-            return Action('rotate', {'side': side, 'reason': 'known_void_ahead'})
-
-        visits = self.state.memory.count_visits_to_position(internal_front_pos)
-        if visits > 3:
-            side = self.state.current_rotation_side % 4
-            self.state.current_rotation_side += 1
-            return Action('rotate', {'side': side, 'reason': 'already_visited_too_much'})
-
-        return Action('move', {'reason': 'exploring_new_area'})
+        """
+        Explora el espacio. La estrategia por defecto es siempre intentar avanzar.
+        La lógica anti-colisión se maneja en el nivel superior de 'decide'.
+        """
+        return Action('move', {'reason': 'exploring'})
 
     def execute(self, action: Action, environment: Any) -> bool:
         """
@@ -254,8 +256,7 @@ class RobotAgent(BaseAgent):
         if action.action_type == 'move':
             success, hit_void = self._execute_move(environment)
             if hit_void:
-                internal_front_pos = self.state.orientation.get_front_position(self.state.internal_position)
-                self.state.memory.void_map.add(internal_front_pos)
+                self.state.just_collided = True
                 action.parameters['hit_void'] = True
             return success
 

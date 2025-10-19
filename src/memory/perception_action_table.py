@@ -41,7 +41,7 @@ class PerceptionActionTable:
         """
         self.entries: List[MemoryEntry] = []
         self.position_history: List[Tuple[int, int, int]] = []
-        self.void_map: set = set()
+        # self.void_map: set = set()
         self.monster_sightings: Dict[Tuple[int, int, int], int] = defaultdict(int)
         self.successful_actions: Counter = Counter()
         self.failed_actions: Counter = Counter()
@@ -64,10 +64,10 @@ class PerceptionActionTable:
         self.entries.append(entry)
         self.position_history.append(position)
 
-        if perception.get('hit_void', False):
-            attempted_pos = perception.get('attempted_position')
-            if attempted_pos:
-                self.void_map.add(attempted_pos)
+        # if perception.get('hit_void', False):
+        #     attempted_pos = perception.get('attempted_position')
+        #     if attempted_pos:
+        #         self.void_map.add(attempted_pos)
 
         if perception.get('monster_detected', False):
             self.monster_sightings[position] += 1
@@ -85,11 +85,11 @@ class PerceptionActionTable:
             return self.position_history[-1]
         return None
 
-    def is_position_void(self, position: Tuple[int, int, int]) -> bool:
-        """
-        Verifica si una posición es conocida como zona vacía
-        """
-        return position in self.void_map
+    # def is_position_void(self, position: Tuple[int, int, int]) -> bool:
+    #     """
+    #     Verifica si una posición es conocida como zona vacía
+    #     """
+    #     return position in self.void_map
 
     def get_monster_likelihood(self, position: Tuple[int, int, int]) -> int:
         """
