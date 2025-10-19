@@ -90,6 +90,7 @@ class RobotState(AgentState):
         from ..memory.perception_action_table import PerceptionActionTable
         self.memory = PerceptionActionTable()
 
+        self.known_void_zones: set[Tuple[int, int, int]] = set()
         self.just_collided: bool = False
         self.monsters_destroyed = 0
         self.collisions_with_void = 0
@@ -103,13 +104,11 @@ class RobotState(AgentState):
         """
         self.just_collided = False
         if action.action_type == 'move' and action.success:
-            self.absolute_position = action.parameters.get('new_position', self.absolute_position)
-            self.position = self.absolute_position
-            px, py, pz = self.internal_position
-            ox, oy, oz = self.orientation.forward
-            self.internal_position = (px + ox, py + oy, pz + oz)
-
             self.movements_made += 1
+
+        if action.action_type == 'move' and action.parameters.get('hit_void', False):
+            front_pos = self.orientation.get_front_position(self.position)
+            self.known_void_zones.add(front_pos)
 
         if action.action_type == 'rotate':
             self.rotations_made += 1
@@ -122,7 +121,7 @@ class RobotState(AgentState):
 
         self.memory.add_entry(
             timestamp=perception.timestamp,
-            position=self.internal_position,
+            position=self.position,
             perception=perception.sensor_data,
             action=action.action_type,
             action_params=action.parameters,
@@ -229,25 +228,28 @@ class RobotAgent(BaseAgent):
 
     def _move_towards_monster(self, sensor_data: Dict) -> Action:
         """
-        Lógica de caza: intenta moverse sistemáticamente para encontrar al monstruo detectado.
-        Es más persistente que la exploración normal.
         """
-        front_pos = self.state.orientation.get_front_position(self.state.position)
+        return Action('move', {'reason': 'hunting_probe'})
 
-        if not self.state.memory.is_position_void(front_pos):
-            return Action('move', {'reason': 'hunting_probe'})
-
-        else:
-            side = self.state.current_rotation_side % 4
-            self.state.current_rotation_side += 1
-            return Action('rotate', {'side': side, 'reason': 'hunting_scan_around'})
 
     def _explore_space(self) -> Action:
         """
-        Explora el espacio. La estrategia por defecto es siempre intentar avanzar.
-        La lógica anti-colisión se maneja en el nivel superior de 'decide'.
+        Explora el espacio usando la memoria para tomar decisiones inteligentes.
         """
-        return Action('move', {'reason': 'exploring'})
+        front_pos = self.state.orientation.get_front_position(self.state.position)
+
+        if front_pos in self.state.known_void_zones:
+            side = self.state.current_rotation_side % 4
+            self.state.current_rotation_side += 1
+            return Action('rotate', {'side': side, 'reason': 'explore_avoid_known_void'})
+
+        visit_count = self.state.memory.count_visits_to_position(front_pos)
+        if visit_count > 5:
+            side = self.state.current_rotation_side % 4
+            self.state.current_rotation_side += 1
+            return Action('rotate', {'side': side, 'reason': 'explore_avoid_loop'})
+
+        return Action('move', {'reason': 'exploring_new_path'})
 
     def execute(self, action: Action, environment: Any) -> bool:
         """

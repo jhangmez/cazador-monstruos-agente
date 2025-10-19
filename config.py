@@ -7,8 +7,8 @@ class EnvironmentConfig:
     Configuración del entorno de operación 3D
     """
     N: int = 10
-    P_free: float = 0.70
-    P_void: float = 0.30
+    P_free: float = 0.85
+    P_void: float = 0.15
 
     def __post_init__(self):
         if not (0 <= self.P_free <= 1 and 0 <= self.P_void <= 1):
@@ -39,7 +39,7 @@ class SimulationConfig:
     """
     Configuración de la simulación
     """
-    max_iterations: int = 300
+    max_iterations: int = 500
     save_images: bool = True
     images_dir: str = "reports/images"
     generate_report: bool = True
